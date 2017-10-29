@@ -28,6 +28,7 @@ private:
     void contextMenuEvent(QContextMenuEvent *event);
     QMenu *menu;
     QAction *action_quit;
+    void mouseDoubleClickEvent(QMouseEvent* event);
 
 private slots:
     void refresh();
