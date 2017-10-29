@@ -4,13 +4,15 @@
 #include <QMouseEvent>
 #include <QTimer>
 #include <QTime>
+#include <QDebug>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     i=0;
-    setStyleSheet("QLabel {padding:1px;}");
+    setStyleSheet("QLabel { color:white; padding:1px; border-radius:15px; }");
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::X11BypassWindowManagerHint);
+    setAttribute(Qt::WA_TranslucentBackground, true);
     setFixedSize(QSize(60,35));
     move(QApplication::desktop()->width()-width()-10, QApplication::desktop()->height()-height()-50);
     QFont font;
@@ -19,6 +21,7 @@ MainWindow::MainWindow(QWidget *parent)
     label->setText("↑ 0.00 K/s\n↓ 0.00 K/s");
     label->setFont(font);
     //label->setAlignment(Qt::AlignCenter);
+    setCentralWidget(label);
     QTimer *timer = new QTimer;
     timer->setInterval(1000);
     timer->start();
@@ -26,7 +29,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     labelFloat = new QLabel;
     labelFloat->setFixedSize(QSize(150,90));
-    labelFloat->setWindowFlags(Qt::FramelessWindowHint);
+    labelFloat->setWindowFlags(Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
     font.setPointSize(8);
     labelFloat->setFont(font);
     labelFloat->setStyleSheet("padding:2px;");
@@ -52,7 +55,7 @@ void MainWindow::mousePressEvent(QMouseEvent *event)
 void MainWindow::mouseMoveEvent(QMouseEvent *event)
 {
     move(event->globalPos() + relativePos);
-    labelFloat->move(x(), y()-labelFloat->height()-5);
+    labelFloat->move(x()-labelFloat->width()/2, y()-labelFloat->height()-5);
 }
 
 QString MainWindow::KB(long k)
@@ -102,13 +105,13 @@ void MainWindow::refresh()
     file.setFileName("/proc/meminfo");
     file.open(QIODevice::ReadOnly);
     l = file.readLine();
-    long int mt = l.mid(l.indexOf(":")+1,l.length()-13).replace(" ","").toInt();
+    long int mt = l.mid(l.indexOf(":")+1, l.length()-13).replace(" ","").toInt();
     l = file.readLine();
     file.close();
     long int mf = l.mid(l.indexOf(":")+1, l.length()-11).replace(" ","").toInt();
-    long int mu = mt-mf;
+    long int mu = mt - mf;
     QString musage = QString::number(mu*100/mt) + "%";
-    QString mem = "内存: "+QString("%1 / %2 = %3").arg(KB(mu)).arg(KB(mt)).arg(musage);
+    QString mem = "内存: " + QString("%1 / %2 = %3").arg(KB(mu)).arg(KB(mt)).arg(musage);
 
     file.setFileName("/proc/stat");
     file.open(QIODevice::ReadOnly);
@@ -118,15 +121,16 @@ void MainWindow::refresh()
     const char *ch;
     ch = ba.constData();
     char cpu[5];
-    long int user,nice,sys,idle,iowait,irq,softirq,tt;
-    sscanf(ch,"%s%ld%ld%ld%ld%ld%ld%ld",cpu,&user,&nice,&sys,&idle,&iowait,&irq,&softirq);
+    long int user, nice, sys, idle, iowait, irq, softirq, tt;
+    sscanf(ch, "%s%ld%ld%ld%ld%ld%ld%ld", cpu, &user, &nice, &sys, &idle, &iowait, &irq, &softirq);
     tt = user + nice + sys + idle + iowait + irq + softirq;
     file.close();
-    QString cusage = "";
-    if(i>0) cusage = QString::number(((tt-tt0)-(idle-idle0))*100/(tt-tt0)) + "%";
+    int cusage = 0;
+    if(i>0) cusage = 100 -(idle-idle0)*100/(tt-tt0);
     idle0 = idle;
     tt0 = tt;
     i++;
+    if(i>2)i=2;
 
     file.setFileName("/proc/net/dev");
     file.open(QIODevice::ReadOnly);
@@ -150,13 +154,29 @@ void MainWindow::refresh()
     QString net = "上传: " + BS(ub) + "  " + uss + "\n下载: " + BS(db) + "  " + dss;
 
     label->setText(netspeed);
-    labelFloat->setText(uptime + "\nCPU: " + cusage + "\n" + mem + "\n"+ net);
+    labelFloat->setText(uptime + "\nCPU: " + QString::number(cusage) + "%\n" + mem + "\n"+ net);
+    QString SS ="";
+    if(cusage<80){
+    SS = QString("QLabel{ color:white; padding:1px; border-radius:15px; background-color: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0,"
+                        "stop:0 rgba(0, 255, 0, 255), stop:%1 rgba(0, 255, 0, 255),"
+                        "stop:%2 rgba(200, 200, 200, 255), stop:1 rgba(200, 200, 200, 255));}")
+           .arg(cusage*1.0/100-0.001)
+           .arg(cusage*1.0/100);
+    }else{
+        SS = QString("QLabel{ color:white; padding:1px; border-radius:15px; background-color: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0,"
+                            "stop:0 rgba(255, 0, 0, 255), stop:%1 rgba(255, 0, 0, 255),"
+                            "stop:%2 rgba(200, 200, 200, 255), stop:1 rgba(200, 200, 200, 255));}")
+               .arg(cusage*1.0/100-0.001)
+               .arg(cusage*1.0/100);
+    }
+    //qDebug() << SS;
+    setStyleSheet(SS);
 }
 
 void MainWindow::enterEvent(QEvent *event)
 {
     Q_UNUSED(event);
-    labelFloat->move(x(), y()-labelFloat->height()-5);
+    labelFloat->move(x()-labelFloat->width()/2, y()-labelFloat->height()-5);
     labelFloat->show();
 }
 
