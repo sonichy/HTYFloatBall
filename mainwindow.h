@@ -16,8 +16,8 @@ public:
     ~MainWindow();
 
 private:
-    long int i,db,ub,tt0,idle0;
-    QLabel *label,*labelFloat;
+    long int i, db, ub, tt0, idle0;
+    QLabel *label, *labelFloat, *labelStartupDuration;
     QPoint relativePos;
     void mousePressEvent(QMouseEvent *event);
     void mouseMoveEvent(QMouseEvent *event);
@@ -32,6 +32,7 @@ private:
 
 private slots:
     void refresh();
+    void HSDSNS();
 };
 
 #endif // MAINWINDOW_H

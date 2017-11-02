@@ -11,6 +11,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     i=0;
+
     setStyleSheet("QLabel { color:white; padding:1px; border-radius:15px; }");
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::X11BypassWindowManagerHint);
     setAttribute(Qt::WA_TranslucentBackground, true);
@@ -27,19 +28,43 @@ MainWindow::MainWindow(QWidget *parent)
     timer->setInterval(1000);
     timer->start();
     connect(timer, SIGNAL(timeout()), this, SLOT(refresh()));
+    label->hide();
 
     labelFloat = new QLabel;
     labelFloat->setFixedSize(QSize(155,90));
     labelFloat->setWindowFlags(Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
     font.setPointSize(8);
-    labelFloat->setFont(font);
-    labelFloat->setStyleSheet("padding:2px;");
+    labelFloat->setFont(font);    
     labelFloat->setAlignment(Qt::AlignVCenter);
+    labelFloat->setStyleSheet("QLabel { padding:2px; color:white; background-color:#000000; border-radius:15px; }");
 
     menu = new QMenu;
     action_quit = new QAction("退出",menu);
     menu->addAction(action_quit);
     connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));
+
+    // 开机时长
+    QProcess *process = new QProcess;
+    process->start("systemd-analyze");
+    process->waitForFinished();
+    QString PO = process->readAllStandardOutput();
+    QStringList SLSA = PO.split(" = ");
+    //QString minute = PO.mid(PO.indexOf("= "),PO.indexOf("min"));
+    //QString second =
+    //qDebug() << scodec;
+    labelStartupDuration = new QLabel;
+    labelStartupDuration->setText(SLSA.at(1));
+    labelStartupDuration->setFixedSize(QSize(200,150));
+    labelStartupDuration->setWindowFlags(Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
+    font.setPointSize(30);
+    labelStartupDuration->setFont(font);
+    labelStartupDuration->setAlignment(Qt::AlignCenter);
+    labelStartupDuration->setStyleSheet("QLabel { padding:2px; color:white; background-color:#00FF00;}");
+    labelStartupDuration->adjustSize();
+    labelStartupDuration->move(QApplication::desktop()->width()-labelStartupDuration->width()-10, QApplication::desktop()->height()-labelStartupDuration->height()-50);
+    labelStartupDuration->show();
+    QTimer::singleShot(5000, this, SLOT(HSDSNS()));
+
 }
 
 MainWindow::~MainWindow()
@@ -201,4 +226,11 @@ void MainWindow::mouseDoubleClickEvent(QMouseEvent* event)
     Q_UNUSED(event);
     QProcess *process = new QProcess;
     process->start("deepin-system-monitor");
+    //process->start("gnome-system-monitor");    
+}
+
+void MainWindow::HSDSNS()
+{
+    labelStartupDuration->close();
+    label->show();
 }
