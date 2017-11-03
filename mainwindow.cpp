@@ -6,6 +6,11 @@
 #include <QTime>
 #include <QDebug>
 #include <QProcess>
+#include <QDialog>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QTextBrowser>
+#include <QPushButton>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -39,9 +44,12 @@ MainWindow::MainWindow(QWidget *parent)
     labelFloat->setStyleSheet("QLabel { padding:2px; color:white; background-color:#000000; border-radius:15px; }");
 
     menu = new QMenu;
-    action_quit = new QAction("退出",menu);
+    action_boot_record = new QAction("开机记录", menu);
+    action_quit = new QAction("退出", menu);
+    menu->addAction(action_boot_record);
     menu->addAction(action_quit);
     connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));
+    connect(action_boot_record, SIGNAL(triggered()), this, SLOT(bootRecord()));
 
     // 开机时长
     QProcess *process = new QProcess;
@@ -233,4 +241,33 @@ void MainWindow::HSDSNS()
 {
     labelStartupDuration->close();
     label->show();
+}
+
+void MainWindow::bootRecord()
+{
+    QProcess *process = new QProcess;
+    process->start("last reboot");
+    process->waitForFinished();
+    QString PO = process->readAllStandardOutput();
+    //QStringList SLLR = PO.split("\n");
+    QDialog *dialog = new QDialog;
+    dialog->setWindowTitle("开机记录");
+    dialog->setFixedSize(500,400);
+    QVBoxLayout *vbox = new QVBoxLayout;
+    QTextBrowser *textBrowser = new QTextBrowser;
+    textBrowser->setText(PO);
+    textBrowser->zoomIn();
+    vbox->addWidget(textBrowser);
+    QHBoxLayout *hbox = new QHBoxLayout;
+    QPushButton *btnConfirm = new QPushButton("确定");
+    hbox->addStretch();
+    hbox->addWidget(btnConfirm);
+    hbox->addStretch();
+    vbox->addLayout(hbox);
+    dialog->setLayout(vbox);
+    dialog->show();
+    connect(btnConfirm, SIGNAL(clicked()), dialog, SLOT(accept()));
+    if(dialog->exec() == QDialog::Accepted){
+        dialog->close();
+    }
 }
