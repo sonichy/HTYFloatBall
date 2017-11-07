@@ -27,13 +27,14 @@ private:
     void leaveEvent(QEvent *event);
     void contextMenuEvent(QContextMenuEvent *event);
     QMenu *menu;
-    QAction *action_quit, *action_boot_record;
+    QAction *action_quit, *action_boot_record, *action_startup_duration;
     void mouseDoubleClickEvent(QMouseEvent* event);
 
 private slots:
     void refresh();
     void HSDSNS();
     void bootRecord();
+    void showStartupDuration();
 };
 
 #endif // MAINWINDOW_H

@@ -11,6 +11,7 @@
 #include <QHBoxLayout>
 #include <QTextBrowser>
 #include <QPushButton>
+#include <QDate>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -44,12 +45,15 @@ MainWindow::MainWindow(QWidget *parent)
     labelFloat->setStyleSheet("QLabel { padding:2px; color:white; background-color:#000000; border-radius:15px; }");
 
     menu = new QMenu;
+    action_startup_duration = new QAction("启动时间", menu);
     action_boot_record = new QAction("开机记录", menu);
     action_quit = new QAction("退出", menu);
+    menu->addAction(action_startup_duration);
     menu->addAction(action_boot_record);
     menu->addAction(action_quit);
-    connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));
+    connect(action_startup_duration, SIGNAL(triggered()), this, SLOT(showStartupDuration()));
     connect(action_boot_record, SIGNAL(triggered()), this, SLOT(bootRecord()));
+    connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));
 
     // 开机时长
     QProcess *process = new QProcess;
@@ -57,11 +61,13 @@ MainWindow::MainWindow(QWidget *parent)
     process->waitForFinished();
     QString PO = process->readAllStandardOutput();
     QStringList SLSA = PO.split(" = ");
+    QString SD = SLSA.at(1);
     //QString minute = PO.mid(PO.indexOf("= "),PO.indexOf("min"));
     //QString second =
     //qDebug() << scodec;
+    if(SD.contains("min"))SD.replace("min","分");
     labelStartupDuration = new QLabel;
-    labelStartupDuration->setText(SLSA.at(1));
+    labelStartupDuration->setText(SD.mid(0,SD.indexOf(".")) + "秒");
     labelStartupDuration->setFixedSize(QSize(200,150));
     labelStartupDuration->setWindowFlags(Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
     font.setPointSize(30);
@@ -239,7 +245,7 @@ void MainWindow::mouseDoubleClickEvent(QMouseEvent* event)
 
 void MainWindow::HSDSNS()
 {
-    labelStartupDuration->close();
+    labelStartupDuration->hide();
     label->show();
 }
 
@@ -249,13 +255,28 @@ void MainWindow::bootRecord()
     process->start("last reboot");
     process->waitForFinished();
     QString PO = process->readAllStandardOutput();
-    //QStringList SLLR = PO.split("\n");
     QDialog *dialog = new QDialog;
     dialog->setWindowTitle("开机记录");
     dialog->setFixedSize(500,400);
     QVBoxLayout *vbox = new QVBoxLayout;
     QTextBrowser *textBrowser = new QTextBrowser;
     textBrowser->setText(PO);
+//    QStringList SLLR = PO.split("\n");
+//    QString MMM="JanFebMarAprMayJunJulAugSepOctNovDec";
+//    for(int i=0; i<SLLR.length(); i++){
+//        QStringList SLline = SLLR.at(i).split(QRegExp("\\s+"));
+//        //qDebug() << SLline;
+//        if(SLline.length() == 11){
+//            QString sdate = QString::number(QDate::currentDate().year()) + "-" + QString::number(MMM.indexOf(SLline.at(5))/3+1) + "-" + SLline.at(6);
+//            qDebug() << sdate;
+//            QDate date = QDate::fromString(sdate, "yyyy-MM-d");
+//            QString s = date.toString("yyyy-MM-dd") + " " + SLline.at(7) + " " + SLline.at(8) + " " + SLline.at(9) + " " + SLline.at(10);
+//            textBrowser->append(s);
+//        }
+//    }
+//    QTextCursor textCursor(textBrowser->textCursor());
+//    textCursor.movePosition(QTextCursor::Start);
+//    textBrowser->setTextCursor(textCursor);
     textBrowser->zoomIn();
     vbox->addWidget(textBrowser);
     QHBoxLayout *hbox = new QHBoxLayout;
@@ -270,4 +291,10 @@ void MainWindow::bootRecord()
     if(dialog->exec() == QDialog::Accepted){
         dialog->close();
     }
+}
+
+void MainWindow::showStartupDuration()
+{
+    labelStartupDuration->show();
+    QTimer::singleShot(5000, labelStartupDuration, SLOT(hide()));
 }
