@@ -16,8 +16,7 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    i=0;
-
+    i = 0;
     setStyleSheet("QLabel { color:white; padding:1px; border-radius:15px; }");
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::X11BypassWindowManagerHint);
     setAttribute(Qt::WA_TranslucentBackground, true);
@@ -45,13 +44,16 @@ MainWindow::MainWindow(QWidget *parent)
     labelFloat->setStyleSheet("QLabel { padding:2px; color:white; background-color:#000000; border-radius:15px; }");
 
     menu = new QMenu;
-    action_startup_duration = new QAction("启动时间", menu);
+    action_boot_duration = new QAction("启动时间", menu);
+    action_boot_analyze = new QAction("启动分析", menu);
     action_boot_record = new QAction("开机记录", menu);
     action_quit = new QAction("退出", menu);
-    menu->addAction(action_startup_duration);
+    menu->addAction(action_boot_duration);
+    menu->addAction(action_boot_analyze);
     menu->addAction(action_boot_record);
     menu->addAction(action_quit);
-    connect(action_startup_duration, SIGNAL(triggered()), this, SLOT(showStartupDuration()));
+    connect(action_boot_duration, SIGNAL(triggered()), this, SLOT(showBootDuration()));
+    connect(action_boot_analyze, SIGNAL(triggered()), this, SLOT(bootAnalyze()));
     connect(action_boot_record, SIGNAL(triggered()), this, SLOT(bootRecord()));
     connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));
 
@@ -62,9 +64,6 @@ MainWindow::MainWindow(QWidget *parent)
     QString PO = process->readAllStandardOutput();
     QStringList SLSA = PO.split(" = ");
     QString SD = SLSA.at(1);
-    //QString minute = PO.mid(PO.indexOf("= "),PO.indexOf("min"));
-    //QString second =
-    //qDebug() << scodec;
     if(SD.contains("min"))SD.replace("min","分");
     labelStartupDuration = new QLabel;
     labelStartupDuration->setText(SD.mid(0,SD.indexOf(".")) + "秒");
@@ -126,7 +125,7 @@ QString MainWindow::BS(long b)
             if(b > 999){
                 s = QString::number(b/1024.0,'f',2) + " KB";
             }else{
-                s = QString::number(b/1.0,'f',2) + " B";
+                s = QString::number(b) + " B";
             }
         }
     }
@@ -261,22 +260,6 @@ void MainWindow::bootRecord()
     QVBoxLayout *vbox = new QVBoxLayout;
     QTextBrowser *textBrowser = new QTextBrowser;
     textBrowser->setText(PO);
-//    QStringList SLLR = PO.split("\n");
-//    QString MMM="JanFebMarAprMayJunJulAugSepOctNovDec";
-//    for(int i=0; i<SLLR.length(); i++){
-//        QStringList SLline = SLLR.at(i).split(QRegExp("\\s+"));
-//        //qDebug() << SLline;
-//        if(SLline.length() == 11){
-//            QString sdate = QString::number(QDate::currentDate().year()) + "-" + QString::number(MMM.indexOf(SLline.at(5))/3+1) + "-" + SLline.at(6);
-//            qDebug() << sdate;
-//            QDate date = QDate::fromString(sdate, "yyyy-MM-d");
-//            QString s = date.toString("yyyy-MM-dd") + " " + SLline.at(7) + " " + SLline.at(8) + " " + SLline.at(9) + " " + SLline.at(10);
-//            textBrowser->append(s);
-//        }
-//    }
-//    QTextCursor textCursor(textBrowser->textCursor());
-//    textCursor.movePosition(QTextCursor::Start);
-//    textBrowser->setTextCursor(textCursor);
     textBrowser->zoomIn();
     vbox->addWidget(textBrowser);
     QHBoxLayout *hbox = new QHBoxLayout;
@@ -293,8 +276,37 @@ void MainWindow::bootRecord()
     }
 }
 
-void MainWindow::showStartupDuration()
+void MainWindow::showBootDuration()
 {
     labelStartupDuration->show();
     QTimer::singleShot(5000, labelStartupDuration, SLOT(hide()));
+}
+
+
+void MainWindow::bootAnalyze()
+{
+    QProcess *process = new QProcess;
+    process->start("systemd-analyze blame");
+    process->waitForFinished();
+    QString PO = process->readAllStandardOutput();
+    QDialog *dialog = new QDialog;
+    dialog->setWindowTitle("启动进程耗时");
+    dialog->setFixedSize(500,400);
+    QVBoxLayout *vbox = new QVBoxLayout;
+    QTextBrowser *textBrowser = new QTextBrowser;
+    textBrowser->setText(PO);
+    textBrowser->zoomIn();
+    vbox->addWidget(textBrowser);
+    QHBoxLayout *hbox = new QHBoxLayout;
+    QPushButton *btnConfirm = new QPushButton("确定");
+    hbox->addStretch();
+    hbox->addWidget(btnConfirm);
+    hbox->addStretch();
+    vbox->addLayout(hbox);
+    dialog->setLayout(vbox);
+    dialog->show();
+    connect(btnConfirm, SIGNAL(clicked()), dialog, SLOT(accept()));
+    if(dialog->exec() == QDialog::Accepted){
+        dialog->close();
+    }
 }
