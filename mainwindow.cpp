@@ -16,7 +16,8 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    i = 0;
+    i=db=ub=dbt=ubt=dbt1=ubt1=dbt0=ubt0=0;
+    //i=0;db=0;ub=0;dbt=0;ubt=0;dbt1=0;ubt1=0;dbt0=0;ubt0=0;
     setStyleSheet("QLabel { color:white; padding:1px; border-radius:15px; }");
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::X11BypassWindowManagerHint);
     setAttribute(Qt::WA_TranslucentBackground, true);
@@ -134,6 +135,7 @@ QString MainWindow::BS(long b)
 
 void MainWindow::refresh()
 {
+    // 开机
     QFile file("/proc/uptime");
     file.open(QIODevice::ReadOnly);
     QString l = file.readLine();
@@ -142,17 +144,24 @@ void MainWindow::refresh()
     t = t.addSecs(l.left(l.indexOf(".")).toInt());
     QString uptime = "开机时长: " + t.toString("hh:mm:ss");
 
+    // 内存
     file.setFileName("/proc/meminfo");
     file.open(QIODevice::ReadOnly);
     l = file.readLine();
-    long int mt = l.mid(l.indexOf(":")+1, l.length()-13).replace(" ","").toInt();
+    long mt = l.replace("MemTotal:","").replace("kB","").replace(" ","").toLong();
     l = file.readLine();
+    long mf = l.replace("MemFree:","").replace("kB","").replace(" ","").toLong();
+    l = file.readLine();
+    l = file.readLine();
+    long mb = l.replace("Buffers:","").replace("kB","").replace(" ","").toLong();
+    l = file.readLine();
+    long mc = l.replace("Cached:","").replace("kB","").replace(" ","").toLong();
     file.close();
-    long int mf = l.mid(l.indexOf(":")+1, l.length()-11).replace(" ","").toInt();
-    long int mu = mt - mf;
+    long mu = mt - mf - mb -mc;
     QString musage = QString::number(mu*100/mt) + "%";
     QString mem = "内存: " + QString("%1 / %2 = %3").arg(KB(mu)).arg(KB(mt)).arg(musage);
 
+    // CPU
     file.setFileName("/proc/stat");
     file.open(QIODevice::ReadOnly);
     l = file.readLine();
@@ -172,28 +181,38 @@ void MainWindow::refresh()
     i++;
     if(i>2)i=2;
 
+    // 网速
     file.setFileName("/proc/net/dev");
     file.open(QIODevice::ReadOnly);
     l = file.readLine();
     l = file.readLine();
-    l = file.readLine();
-    if(l.contains("lo",Qt::CaseInsensitive))l = file.readLine();
+    dbt1=ubt1=0;
+    while(!file.atEnd()){
+        l = file.readLine();
+        //if(l.contains("lo",Qt::CaseInsensitive))l = file.readLine();
+        QStringList list = l.split(QRegExp("\\s{1,}"));
+        db = list.at(1).toLong();
+        ub = list.at(9).toLong();
+        dbt1 += db;
+        ubt1 += ub;
+    }
     file.close();
-    QStringList list = l.split(QRegExp("\\s{1,}"));
     QString dss = "";
     QString uss = "";
     if(i > 0){
-        long ds = list.at(1).toLong() - db;
-        long us = list.at(9).toLong() - ub;
+        long ds = dbt1 - dbt0;
+        long us = ubt1 - ubt0;
+        dbt = dbt0 + ds;
+        ubt = ubt0 + us;
         dss = BS(ds) + "/s";
         uss = BS(us) + "/s";
-
-        db = list.at(1).toLong();
-        ub = list.at(9).toLong();
+        dbt0 = dbt1;
+        ubt0 = ubt1;
     }
     QString netspeed = "↑ " + uss + "\n↓ " + dss;
-    QString net = "上传: " + BS(ub) + "  " + uss + "\n下载: " + BS(db) + "  " + dss;
+    QString net = "上传: " + BS(ubt) + "  " + uss + "\n下载: " + BS(dbt) + "  " + dss;
 
+    // 绘图
     label->setText(netspeed);
     labelFloat->setText(uptime + "\nCPU: " + QString::number(cusage) + "%\n" + mem + "\n"+ net);
     QString SS ="";

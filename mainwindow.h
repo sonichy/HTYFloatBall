@@ -15,8 +15,8 @@ public:
     MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-private:
-    long int i, db, ub, tt0, idle0;
+private:    
+    long int i, db, ub, dbt, ubt, dbt1, ubt1, dbt0, ubt0, tt0, idle0;
     QLabel *label, *labelFloat, *labelStartupDuration;
     QPoint relativePos;
     void mousePressEvent(QMouseEvent *event);
