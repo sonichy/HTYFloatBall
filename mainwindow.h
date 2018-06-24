@@ -17,23 +17,23 @@ public:
 
 private:    
     long int i, db, ub, dbt, ubt, dbt1, ubt1, dbt0, ubt0, tt0, idle0;
-    QLabel *label, *labelFloat, *labelStartupDuration;
+    QString startup;
+    QLabel *label, *labelFloat;
     QPoint relativePos;
-    void mousePressEvent(QMouseEvent *event);
-    void mouseMoveEvent(QMouseEvent *event);
     QString KB(long k);
     QString BS(long b);
+    QMenu *menu;
+    QAction *action_quit, *action_boot_record, *action_boot_duration, *action_boot_analyze;
+    void mousePressEvent(QMouseEvent *event);
+    void mouseMoveEvent(QMouseEvent *event);
+    void mouseReleaseEvent(QMouseEvent *event);
     void enterEvent(QEvent *event);
     void leaveEvent(QEvent *event);
     void contextMenuEvent(QContextMenuEvent *event);
-    QMenu *menu;
-    QAction *action_quit, *action_boot_record, *action_boot_duration, *action_boot_analyze;
     void mouseDoubleClickEvent(QMouseEvent* event);
 
 private slots:
     void refresh();
-    void HSDSNS();
-    void showBootDuration();
     void bootRecord();
     void bootAnalyze();
 

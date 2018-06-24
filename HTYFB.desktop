@@ -1,10 +1,9 @@
 [Desktop Entry]
-Name=HTYFB
-Comment=
-Exec=/media/sonichy/job/HY/Linux/Qt/HTYFB/HTYFB
+Name=海天鹰浮球
+Comment=Media player
+Exec=/media/sonichy/job/HY/Linux/Qt/HTYFB/HTYFB %u
 Icon=/media/sonichy/job/HY/Linux/Qt/HTYFB/icon.png
 Path=/media/sonichy/job/HY/Linux/Qt/HTYFB
 Terminal=false
 Type=Application
-MimeType=
-Categories=
+Categories=System;

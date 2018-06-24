@@ -18,9 +18,11 @@ MainWindow::MainWindow(QWidget *parent)
 {
     i=db=ub=dbt=ubt=dbt1=ubt1=dbt0=ubt0=0;
     //i=0;db=0;ub=0;dbt=0;ubt=0;dbt1=0;ubt1=0;dbt0=0;ubt0=0;
-    setStyleSheet("QLabel { color:white; padding:1px; border-radius:15px; }");
+    setStyleSheet("QLabel { color:white; padding:2px; border-radius:15px; }"
+                  "QToolTip { color:white; border-style:none; background-color:black; }");
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::X11BypassWindowManagerHint);
-    setAttribute(Qt::WA_TranslucentBackground, true);
+    setAttribute(Qt::WA_TranslucentBackground,true);
+    setAutoFillBackground(true);
     setFixedSize(QSize(60,35));
     move(QApplication::desktop()->width()-width()-20, QApplication::desktop()->height()-height()-50);
     QFont font;
@@ -34,26 +36,27 @@ MainWindow::MainWindow(QWidget *parent)
     timer->setInterval(1000);
     timer->start();
     connect(timer, SIGNAL(timeout()), this, SLOT(refresh()));
-    label->hide();
 
     labelFloat = new QLabel;
-    labelFloat->setFixedSize(QSize(155,90));
+    labelFloat->setFixedSize(QSize(155,110));
     labelFloat->setWindowFlags(Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
     font.setPointSize(8);
-    labelFloat->setFont(font);    
+    labelFloat->setFont(font);
     labelFloat->setAlignment(Qt::AlignVCenter);
     labelFloat->setStyleSheet("QLabel { padding:2px; color:white; background-color:#000000; border-radius:15px; }");
 
     menu = new QMenu;
-    action_boot_duration = new QAction("启动时间", menu);
+    menu->setStyleSheet("QMenu { color:white; background:rgba(0,0,0,200); }"
+                        //"QMenu::item { background:rgba(0,0,0,200);}"
+                        "QMenu::item:selected { background:rgba(100,100,100,100); }");
+    //menu->setAttribute(Qt::WA_TranslucentBackground,true);
+    //menu->setAutoFillBackground(true);
     action_boot_analyze = new QAction("启动分析", menu);
     action_boot_record = new QAction("开机记录", menu);
     action_quit = new QAction("退出", menu);
-    menu->addAction(action_boot_duration);
     menu->addAction(action_boot_analyze);
     menu->addAction(action_boot_record);
     menu->addAction(action_quit);
-    connect(action_boot_duration, SIGNAL(triggered()), this, SLOT(showBootDuration()));
     connect(action_boot_analyze, SIGNAL(triggered()), this, SLOT(bootAnalyze()));
     connect(action_boot_record, SIGNAL(triggered()), this, SLOT(bootRecord()));
     connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));
@@ -63,22 +66,11 @@ MainWindow::MainWindow(QWidget *parent)
     process->start("systemd-analyze");
     process->waitForFinished();
     QString PO = process->readAllStandardOutput();
-    QStringList SLSA = PO.split(" = ");
-    QString SD = SLSA.at(1);
-    if(SD.contains("min"))SD.replace("min","分");
-    labelStartupDuration = new QLabel;
-    labelStartupDuration->setText(SD.mid(0,SD.indexOf(".")) + "秒");
-    labelStartupDuration->setFixedSize(QSize(200,150));
-    labelStartupDuration->setWindowFlags(Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
-    font.setPointSize(30);
-    labelStartupDuration->setFont(font);
-    labelStartupDuration->setAlignment(Qt::AlignCenter);
-    labelStartupDuration->setStyleSheet("QLabel { padding:2px; color:white; background-color:#00FF00;}");
-    labelStartupDuration->adjustSize();
-    labelStartupDuration->move(QApplication::desktop()->width()-labelStartupDuration->width()-10, QApplication::desktop()->height()-labelStartupDuration->height()-50);
-    labelStartupDuration->show();
-    QTimer::singleShot(5000, this, SLOT(HSDSNS()));
-
+    QString SD = PO.mid(PO.indexOf("=") + 1, PO.indexOf("\n") - PO.indexOf("=") - 1);
+    SD.replace("min"," 分");
+    SD.replace("ms"," 毫秒");
+    SD.replace("s"," 秒");
+    startup = "启动: " + SD;
 }
 
 MainWindow::~MainWindow()
@@ -95,8 +87,15 @@ void MainWindow::mousePressEvent(QMouseEvent *event)
 
 void MainWindow::mouseMoveEvent(QMouseEvent *event)
 {
+    setCursor(Qt::ClosedHandCursor);
     move(event->globalPos() + relativePos);
     labelFloat->move(x()-labelFloat->width()/2, y()-labelFloat->height()-5);
+}
+
+void MainWindow::mouseReleaseEvent(QMouseEvent *event)
+{
+    Q_UNUSED(event);
+    setCursor(Qt::ArrowCursor);
 }
 
 QString MainWindow::KB(long k)
@@ -142,7 +141,7 @@ void MainWindow::refresh()
     file.close();
     QTime t = QTime(0,0,0);
     t = t.addSecs(l.left(l.indexOf(".")).toInt());
-    QString uptime = "开机时长: " + t.toString("hh:mm:ss");
+    QString uptime = "开机: " + t.toString("hh:mm:ss");
 
     // 内存
     file.setFileName("/proc/meminfo");
@@ -150,16 +149,14 @@ void MainWindow::refresh()
     l = file.readLine();
     long mt = l.replace("MemTotal:","").replace("kB","").replace(" ","").toLong();
     l = file.readLine();
-    long mf = l.replace("MemFree:","").replace("kB","").replace(" ","").toLong();
+    l = file.readLine();
+    long ma = l.replace("MemAvailable:","").replace("kB","").replace(" ","").toLong();
     l = file.readLine();
     l = file.readLine();
-    long mb = l.replace("Buffers:","").replace("kB","").replace(" ","").toLong();
-    l = file.readLine();
-    long mc = l.replace("Cached:","").replace("kB","").replace(" ","").toLong();
     file.close();
-    long mu = mt - mf - mb -mc;
-    QString musage = QString::number(mu*100/mt) + "%";
-    QString mem = "内存: " + QString("%1 / %2 = %3").arg(KB(mu)).arg(KB(mt)).arg(musage);
+    long mu = mt - ma;
+    int mp = mu*100/mt;
+    QString mem = "内存: " + QString("%1/%2=%3").arg(KB(mu)).arg(KB(mt)).arg(QString::number(mp) + "%");
 
     // CPU
     file.setFileName("/proc/stat");
@@ -178,8 +175,6 @@ void MainWindow::refresh()
     if(i>0) cusage = 100 -(idle-idle0)*100/(tt-tt0);
     idle0 = idle;
     tt0 = tt;
-    i++;
-    if(i>2)i=2;
 
     // 网速
     file.setFileName("/proc/net/dev");
@@ -189,7 +184,6 @@ void MainWindow::refresh()
     dbt1=ubt1=0;
     while(!file.atEnd()){
         l = file.readLine();
-        //if(l.contains("lo",Qt::CaseInsensitive))l = file.readLine();
         QStringList list = l.split(QRegExp("\\s{1,}"));
         db = list.at(1).toLong();
         ub = list.at(9).toLong();
@@ -202,35 +196,37 @@ void MainWindow::refresh()
     if(i > 0){
         long ds = dbt1 - dbt0;
         long us = ubt1 - ubt0;
-        dbt = dbt0 + ds;
-        ubt = ubt0 + us;
         dss = BS(ds) + "/s";
         uss = BS(us) + "/s";
         dbt0 = dbt1;
         ubt0 = ubt1;
     }
     QString netspeed = "↑ " + uss + "\n↓ " + dss;
-    QString net = "上传: " + BS(ubt) + "  " + uss + "\n下载: " + BS(dbt) + "  " + dss;
+    QString net = "上传: " + BS(ubt1) + "  " + uss + "\n下载: " + BS(dbt1) + "  " + dss;
+
+    i++;
+    if(i>2)i=2;
 
     // 绘图
     label->setText(netspeed);
-    labelFloat->setText(uptime + "\nCPU: " + QString::number(cusage) + "%\n" + mem + "\n"+ net);
+    labelFloat->setText(startup + "\n" + uptime + "\nCPU: " + QString::number(cusage) + "%\n" + mem + "\n"+ net);
+    //setToolTip(startup + "\n" + uptime + "\nCPU: " + QString::number(cusage) + "%\n" + mem + "\n"+ net);
     QString SS ="";
-    if(cusage<80){
-        SS = QString("QLabel{ color:white; padding:1px; border-radius:15px; background-color: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0,"
-                     "stop:0 rgba(0, 255, 0, 255), stop:%1 rgba(0, 255, 0, 255),"
-                     "stop:%2 rgba(0, 0, 0, 255), stop:1 rgba(0, 0, 0, 255));}")
-                .arg(cusage*1.0/100-0.001)
-                .arg(cusage*1.0/100);
+    if(mp<90){
+        SS = QString("color:white; padding:1px; border-radius:15px; background-color: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0,"
+                     "stop:0 rgba(0,200,0,200), stop:%1 rgba(0,200,0,200),"
+                     "stop:%2 rgba(0,0,0,200), stop:1 rgba(0,0,0,200));")
+                .arg(mp*1.0/100-0.001)
+                .arg(mp*1.0/100);
     }else{
-        SS = QString("QLabel{ color:white; padding:1px; border-radius:15px; background-color: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0,"
-                     "stop:0 rgba(255, 0, 0, 255), stop:%1 rgba(255, 0, 0, 255),"
-                     "stop:%2 rgba(0, 0, 0, 255), stop:1 rgba(0, 0, 0, 255));}")
-                .arg(cusage*1.0/100-0.001)
-                .arg(cusage*1.0/100);
+        SS = QString("color:white; padding:1px; border-radius:15px; background-color: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0,"
+                     "stop:0 rgba(255,0,0,200), stop:%1 rgba(255,0,0,200),"
+                     "stop:%2 rgba(0,0,0,200), stop:1 rgba(0,0,0,200));")
+                .arg(mp*1.0/100-0.001)
+                .arg(mp*1.0/100);
     }
     //qDebug() << SS;
-    setStyleSheet(SS);
+    label->setStyleSheet(SS);
 
 }
 
@@ -258,13 +254,7 @@ void MainWindow::mouseDoubleClickEvent(QMouseEvent* event)
     Q_UNUSED(event);
     QProcess *process = new QProcess;
     process->start("deepin-system-monitor");
-    //process->start("gnome-system-monitor");    
-}
-
-void MainWindow::HSDSNS()
-{
-    labelStartupDuration->hide();
-    label->show();
+    //process->start("gnome-system-monitor");
 }
 
 void MainWindow::bootRecord()
@@ -294,13 +284,6 @@ void MainWindow::bootRecord()
         dialog->close();
     }
 }
-
-void MainWindow::showBootDuration()
-{
-    labelStartupDuration->show();
-    QTimer::singleShot(5000, labelStartupDuration, SLOT(hide()));
-}
-
 
 void MainWindow::bootAnalyze()
 {
