@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=海天鹰浮球
-Comment=Media player
-Exec=/media/sonichy/job/HY/Linux/Qt/HTYFB/HTYFB %u
-Icon=/media/sonichy/job/HY/Linux/Qt/HTYFB/icon.png
-Path=/media/sonichy/job/HY/Linux/Qt/HTYFB
-Terminal=false
-Type=Application
-Categories=System;
