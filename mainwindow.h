@@ -18,13 +18,12 @@ public:
 
 private:
     long int i, db, ub, dbt, ubt, dbt1, ubt1, dbt0, ubt0, tt0, idle0;
-    QString startup;
+    QString startup, text_float;
     QLabel *label, *label_float;
     QPoint relativePos;
     QString KB(long k);
     QString BS(long b);
     QMenu *menu;
-    QAction *action_quit, *action_boot_record, *action_boot_duration, *action_boot_analyze;
     QSystemTrayIcon *systray;
 
 protected:
@@ -40,6 +39,7 @@ private slots:
     void refresh();
     void bootRecord();
     void bootAnalyze();
+    void trayActivated(QSystemTrayIcon::ActivationReason reason);
 
 };
 

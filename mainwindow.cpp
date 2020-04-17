@@ -45,38 +45,6 @@ MainWindow::MainWindow(QWidget *parent)
     label_float->setAlignment(Qt::AlignVCenter);
     label_float->setStyleSheet("QLabel { padding:2px; color:white; background-color:rgba(0,0,0,200); border-radius:15px; }");//无效
 
-    menu = new QMenu;
-    menu->setStyleSheet("QMenu { color:white; background:rgba(0,0,0,200); }"
-                        //"QMenu::item { background:rgba(0,0,0,200);}"
-                        "QMenu::item:selected { background:rgba(100,100,100,100); }");//无效
-    //menu->setAttribute(Qt::WA_TranslucentBackground,true);
-    //menu->setAutoFillBackground(true);
-    QAction *action_hide = new QAction("隐藏", menu);
-    action_boot_analyze = new QAction("启动分析", menu);
-    action_boot_record = new QAction("开机记录", menu);
-    action_quit = new QAction("退出", menu);
-    menu->addAction(action_hide);
-    menu->addAction(action_boot_analyze);
-    menu->addAction(action_boot_record);
-    menu->addAction(action_quit);
-    connect(action_hide, &QAction::triggered, [=](){
-            label->hide();
-    });
-    connect(action_boot_analyze, SIGNAL(triggered()), this, SLOT(bootAnalyze()));
-    connect(action_boot_record, SIGNAL(triggered()), this, SLOT(bootRecord()));
-    connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));
-
-    // 开机时长
-    QProcess *process = new QProcess;
-    process->start("systemd-analyze");
-    process->waitForFinished();
-    QString PO = process->readAllStandardOutput();
-    QString SD = PO.mid(PO.indexOf("=") + 1, PO.indexOf("\n") - PO.indexOf("=") - 1);
-    SD.replace("min"," 分");
-    SD.replace("ms"," 毫秒");
-    SD.replace("s"," 秒");
-    startup = "启动: " + SD;
-
     //托盘
     systray = new QSystemTrayIcon(this);
     systray->setToolTip("系统监控");
@@ -89,7 +57,7 @@ MainWindow::MainWindow(QWidget *parent)
     QAction *action_about = new QAction("关于", traymenu);
     icon = QIcon::fromTheme("about");
     action_about->setIcon(icon);
-    action_quit = new QAction("退出", traymenu);
+    QAction *action_quit = new QAction("退出", traymenu);
     icon = QIcon::fromTheme("quit");;
     action_quit->setIcon(icon);
     traymenu->addAction(action_showhide);
@@ -97,6 +65,7 @@ MainWindow::MainWindow(QWidget *parent)
     traymenu->addAction(action_quit);
     systray->setContextMenu(traymenu);
     systray->show();
+    connect(systray, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(trayActivated(QSystemTrayIcon::ActivationReason)));
     connect(action_showhide, &QAction::triggered, [=](){
         if (label->isVisible()) {
             label->hide();
@@ -112,6 +81,40 @@ MainWindow::MainWindow(QWidget *parent)
         MB.exec();
     });
     connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));
+
+    //右键
+    menu = new QMenu;
+    menu->setStyleSheet("QMenu { color:white; background:rgba(0,0,0,200); }"
+                        //"QMenu::item { background:rgba(0,0,0,200);}"
+                        "QMenu::item:selected { background:rgba(100,100,100,100); }");//无效
+    //menu->setAttribute(Qt::WA_TranslucentBackground,true);
+    //menu->setAutoFillBackground(true);
+    QAction *action_hide = new QAction("隐藏", menu);
+    QAction *action_boot_analyze = new QAction("启动分析", menu);
+    QAction *action_boot_record = new QAction("开机记录", menu);
+    action_quit = new QAction("退出", menu);
+    menu->addAction(action_hide);
+    menu->addAction(action_boot_analyze);
+    menu->addAction(action_boot_record);
+    menu->addAction(action_quit);
+    connect(action_hide, &QAction::triggered, [=](){
+        label->hide();
+        action_showhide->setText("显示");
+    });
+    connect(action_boot_analyze, SIGNAL(triggered()), this, SLOT(bootAnalyze()));
+    connect(action_boot_record, SIGNAL(triggered()), this, SLOT(bootRecord()));
+    connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));
+
+    // 开机时长
+    QProcess *process = new QProcess;
+    process->start("systemd-analyze");
+    process->waitForFinished();
+    QString PO = process->readAllStandardOutput();
+    QString SD = PO.mid(PO.indexOf("=") + 1, PO.indexOf("\n") - PO.indexOf("=") - 1);
+    SD.replace("min"," 分");
+    SD.replace("ms"," 毫秒");
+    SD.replace("s"," 秒");
+    startup = "启动: " + SD;
 }
 
 MainWindow::~MainWindow()
@@ -250,7 +253,10 @@ void MainWindow::refresh()
 
     // 绘图
     label->setText(netspeed);
-    label_float->setText(startup + "\n" + uptime + "\nCPU: " + QString::number(cusage) + "%\n" + mem + "\n"+ net);
+    text_float = startup + "\n" + uptime + "\nCPU: " + QString::number(cusage) + "%\n" + mem + "\n" + net;
+    label_float->setText(text_float);
+    systray->setToolTip(text_float);
+
     QString SS = "";
     if (mp < 90) {
         SS = QString("background-color: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0,"
@@ -311,9 +317,8 @@ void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 void MainWindow::mouseDoubleClickEvent(QMouseEvent* event)
 {
     Q_UNUSED(event);
-    QProcess *process = new QProcess;
-    process->start("deepin-system-monitor");
-    //process->start("gnome-system-monitor");
+    QProcess::startDetached("deepin-system-monitor");
+    //QProcess::startDetached("gnome-system-monitor");
 }
 
 void MainWindow::bootRecord()
@@ -369,5 +374,23 @@ void MainWindow::bootAnalyze()
     connect(pushButton_confirm, SIGNAL(clicked()), dialog, SLOT(accept()));
     if(dialog->exec() == QDialog::Accepted){
         dialog->close();
+    }
+}
+
+void MainWindow::trayActivated(QSystemTrayIcon::ActivationReason reason)
+{
+    qDebug() << "QSystemTrayIcon::ActivationReason" << reason;
+    switch (reason) {
+    case QSystemTrayIcon::Trigger:
+        //systray->showMessage("实时监控", text_float, QSystemTrayIcon::MessageIcon::Information, 9000); //图标改变后不能更改
+        break;
+    case QSystemTrayIcon::DoubleClick: //不支持
+        QProcess::startDetached("deepin-system-monitor");
+        break;
+    case QSystemTrayIcon::MiddleClick:
+        QProcess::startDetached("deepin-system-monitor");
+        break;
+    default:
+        break;
     }
 }
