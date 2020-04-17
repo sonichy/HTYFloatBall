@@ -6,6 +6,7 @@
 #include <QMenu>
 #include <QAction>
 #include <QContextMenuEvent>
+#include <QSystemTrayIcon>
 
 class MainWindow : public QMainWindow
 {
@@ -15,15 +16,18 @@ public:
     MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-private:    
+private:
     long int i, db, ub, dbt, ubt, dbt1, ubt1, dbt0, ubt0, tt0, idle0;
     QString startup;
-    QLabel *label, *labelFloat;
+    QLabel *label, *label_float;
     QPoint relativePos;
     QString KB(long k);
     QString BS(long b);
     QMenu *menu;
     QAction *action_quit, *action_boot_record, *action_boot_duration, *action_boot_analyze;
+    QSystemTrayIcon *systray;
+
+protected:
     void mousePressEvent(QMouseEvent *event);
     void mouseMoveEvent(QMouseEvent *event);
     void mouseReleaseEvent(QMouseEvent *event);

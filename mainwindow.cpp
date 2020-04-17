@@ -12,19 +12,19 @@
 #include <QTextBrowser>
 #include <QPushButton>
 #include <QDate>
+#include <QMessageBox>
+#include <QPainter>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     i=db=ub=dbt=ubt=dbt1=ubt1=dbt0=ubt0=0;
-    //i=0;db=0;ub=0;dbt=0;ubt=0;dbt1=0;ubt1=0;dbt0=0;ubt0=0;
-    setStyleSheet("QLabel { color:white; padding:2px; border-radius:15px; }"
-                  "QToolTip { color:white; border-style:none; background-color:black; }");
+    setStyleSheet("QLabel { color:white; padding:2px; border:1px solid white; border-radius:15px; }");
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::X11BypassWindowManagerHint);
-    setAttribute(Qt::WA_TranslucentBackground,true);
+    setAttribute(Qt::WA_TranslucentBackground, true);
     setAutoFillBackground(true);
     setFixedSize(QSize(60,35));
-    move(QApplication::desktop()->width()-width()-20, QApplication::desktop()->height()-height()-50);
+    move(QApplication::desktop()->width() - width() - 20, QApplication::desktop()->height() - height() - 50);
     QFont font;
     font.setPointSize(7);
     label = new QLabel(this);
@@ -37,26 +37,31 @@ MainWindow::MainWindow(QWidget *parent)
     timer->start();
     connect(timer, SIGNAL(timeout()), this, SLOT(refresh()));
 
-    labelFloat = new QLabel;
-    labelFloat->setFixedSize(QSize(155,110));
-    labelFloat->setWindowFlags(Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
+    label_float = new QLabel;
+    label_float->setFixedSize(QSize(155,110));
+    label_float->setWindowFlags(Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
     font.setPointSize(8);
-    labelFloat->setFont(font);
-    labelFloat->setAlignment(Qt::AlignVCenter);
-    labelFloat->setStyleSheet("QLabel { padding:2px; color:white; background-color:#000000; border-radius:15px; }");
+    label_float->setFont(font);
+    label_float->setAlignment(Qt::AlignVCenter);
+    label_float->setStyleSheet("QLabel { padding:2px; color:white; background-color:rgba(0,0,0,200); border-radius:15px; }");//无效
 
     menu = new QMenu;
     menu->setStyleSheet("QMenu { color:white; background:rgba(0,0,0,200); }"
                         //"QMenu::item { background:rgba(0,0,0,200);}"
-                        "QMenu::item:selected { background:rgba(100,100,100,100); }");
+                        "QMenu::item:selected { background:rgba(100,100,100,100); }");//无效
     //menu->setAttribute(Qt::WA_TranslucentBackground,true);
     //menu->setAutoFillBackground(true);
+    QAction *action_hide = new QAction("隐藏", menu);
     action_boot_analyze = new QAction("启动分析", menu);
     action_boot_record = new QAction("开机记录", menu);
     action_quit = new QAction("退出", menu);
+    menu->addAction(action_hide);
     menu->addAction(action_boot_analyze);
     menu->addAction(action_boot_record);
     menu->addAction(action_quit);
+    connect(action_hide, &QAction::triggered, [=](){
+            label->hide();
+    });
     connect(action_boot_analyze, SIGNAL(triggered()), this, SLOT(bootAnalyze()));
     connect(action_boot_record, SIGNAL(triggered()), this, SLOT(bootRecord()));
     connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));
@@ -71,6 +76,42 @@ MainWindow::MainWindow(QWidget *parent)
     SD.replace("ms"," 毫秒");
     SD.replace("s"," 秒");
     startup = "启动: " + SD;
+
+    //托盘
+    systray = new QSystemTrayIcon(this);
+    systray->setToolTip("系统监控");
+    systray->setIcon(QIcon(":/icon.png"));
+    systray->setVisible(true);
+    QMenu *traymenu = new QMenu(this);
+    QAction *action_showhide = new QAction("显示", traymenu);
+    QIcon icon = QIcon::fromTheme("computer");
+    action_showhide->setIcon(icon);
+    QAction *action_about = new QAction("关于", traymenu);
+    icon = QIcon::fromTheme("about");
+    action_about->setIcon(icon);
+    action_quit = new QAction("退出", traymenu);
+    icon = QIcon::fromTheme("quit");;
+    action_quit->setIcon(icon);
+    traymenu->addAction(action_showhide);
+    traymenu->addAction(action_about);
+    traymenu->addAction(action_quit);
+    systray->setContextMenu(traymenu);
+    systray->show();
+    connect(action_showhide, &QAction::triggered, [=](){
+        if (label->isVisible()) {
+            label->hide();
+            action_showhide->setText("显示");
+        } else {
+            label->show();
+            action_showhide->setText("隐藏");
+        }
+    });
+    connect(action_about, &QAction::triggered, [](){
+        QMessageBox MB(QMessageBox::NoIcon, "关于", "海天鹰浮球 2.0\n一款基于Qt的天气预报程序。\n作者：海天鹰\nE-mail: sonichy@163.com\n主页：https://github.com/sonichy\n\n2.0 (2020-04-17)\n增加托盘图标显示内存使用率。\n\n1.0 (2018)\n浮球显示网速，鼠标悬浮显示详细信息，绿色表示内存使用率，超过90%变红色。");
+        MB.setIconPixmap(QPixmap(":/HTYFB.png"));
+        MB.exec();
+    });
+    connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));
 }
 
 MainWindow::~MainWindow()
@@ -89,7 +130,7 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event)
 {
     setCursor(Qt::ClosedHandCursor);
     move(event->globalPos() + relativePos);
-    labelFloat->move(x()-labelFloat->width()/2, y()-labelFloat->height()-5);
+    label_float->move(x() - label_float->width()/2, y() - label_float->height() - 5);
 }
 
 void MainWindow::mouseReleaseEvent(QMouseEvent *event)
@@ -101,12 +142,12 @@ void MainWindow::mouseReleaseEvent(QMouseEvent *event)
 QString MainWindow::KB(long k)
 {
     QString s = "";
-    if(k > 999999){
+    if (k > 999999) {
         s = QString::number(k/(1024*1024.0),'f',2) + " GB";
-    }else{
-        if(k > 999){
+    } else {
+        if (k > 999) {
             s = QString::number(k/1024.0,'f',2) + " MB";
-        }else{
+        } else {
             s = QString::number(k/1.0,'f',2) + " KB";
         }
     }
@@ -116,15 +157,15 @@ QString MainWindow::KB(long k)
 QString MainWindow::BS(long b)
 {
     QString s = "";
-    if(b > 999999999){
+    if (b > 999999999) {
         s = QString::number(b/(1024*1024*1024.0),'f',2) + " GB";
-    }else{
-        if(b > 999999){
+    } else {
+        if (b > 999999) {
             s = QString::number(b/(1024*1024.0),'f',2) + " MB";
-        }else{
-            if(b > 999){
+        } else {
+            if (b > 999) {
                 s = QString::number(b/1024.0,'f',2) + " KB";
-            }else{
+            } else {
                 s = QString::number(b) + " B";
             }
         }
@@ -209,17 +250,16 @@ void MainWindow::refresh()
 
     // 绘图
     label->setText(netspeed);
-    labelFloat->setText(startup + "\n" + uptime + "\nCPU: " + QString::number(cusage) + "%\n" + mem + "\n"+ net);
-    //setToolTip(startup + "\n" + uptime + "\nCPU: " + QString::number(cusage) + "%\n" + mem + "\n"+ net);
-    QString SS ="";
-    if(mp<90){
-        SS = QString("color:white; padding:1px; border-radius:15px; background-color: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0,"
+    label_float->setText(startup + "\n" + uptime + "\nCPU: " + QString::number(cusage) + "%\n" + mem + "\n"+ net);
+    QString SS = "";
+    if (mp < 90) {
+        SS = QString("background-color: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0,"
                      "stop:0 rgba(0,200,0,200), stop:%1 rgba(0,200,0,200),"
                      "stop:%2 rgba(0,0,0,200), stop:1 rgba(0,0,0,200));")
                 .arg(mp*1.0/100-0.001)
                 .arg(mp*1.0/100);
-    }else{
-        SS = QString("color:white; padding:1px; border-radius:15px; background-color: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0,"
+    } else {
+        SS = QString("background-color: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0,"
                      "stop:0 rgba(255,0,0,200), stop:%1 rgba(255,0,0,200),"
                      "stop:%2 rgba(0,0,0,200), stop:1 rgba(0,0,0,200));")
                 .arg(mp*1.0/100-0.001)
@@ -228,19 +268,38 @@ void MainWindow::refresh()
     //qDebug() << SS;
     label->setStyleSheet(SS);
 
+    //修改托盘图标
+    QPixmap pixmap(128,128);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    QPen pen;
+    if (mp<90)
+        pen.setColor(Qt::green);
+    else
+        pen.setColor(Qt::red);
+    pen.setWidth(10);
+    painter.setPen(pen);
+    painter.drawArc(pixmap.rect().adjusted(10,10,-10,-10), 0, 360*16*mp/100);
+    QFont font;
+    font.setPointSize(50);
+    painter.setFont(font);
+    painter.drawText(pixmap.rect(), Qt::AlignCenter, QString::number(mp));
+    QIcon icon(pixmap);
+    systray->setIcon(icon);
 }
 
 void MainWindow::enterEvent(QEvent *event)
 {
     Q_UNUSED(event);
-    labelFloat->move(x()-labelFloat->width()/2, y()-labelFloat->height()-5);
-    labelFloat->show();
+    label_float->move(x() - label_float->width()/2, y()-label_float->height() - 5);
+    label_float->show();
 }
 
 void MainWindow::leaveEvent(QEvent *event)
 {
     Q_UNUSED(event);
-    labelFloat->hide();
+    label_float->hide();
 }
 
 void MainWindow::contextMenuEvent(QContextMenuEvent *event)
@@ -272,14 +331,14 @@ void MainWindow::bootRecord()
     textBrowser->zoomIn();
     vbox->addWidget(textBrowser);
     QHBoxLayout *hbox = new QHBoxLayout;
-    QPushButton *btnConfirm = new QPushButton("确定");
+    QPushButton *pushButton_confirm = new QPushButton("确定");
     hbox->addStretch();
-    hbox->addWidget(btnConfirm);
+    hbox->addWidget(pushButton_confirm);
     hbox->addStretch();
     vbox->addLayout(hbox);
     dialog->setLayout(vbox);
     dialog->show();
-    connect(btnConfirm, SIGNAL(clicked()), dialog, SLOT(accept()));
+    connect(pushButton_confirm, SIGNAL(clicked()), dialog, SLOT(accept()));
     if(dialog->exec() == QDialog::Accepted){
         dialog->close();
     }
@@ -300,14 +359,14 @@ void MainWindow::bootAnalyze()
     textBrowser->zoomIn();
     vbox->addWidget(textBrowser);
     QHBoxLayout *hbox = new QHBoxLayout;
-    QPushButton *btnConfirm = new QPushButton("确定");
+    QPushButton *pushButton_confirm = new QPushButton("确定");
     hbox->addStretch();
-    hbox->addWidget(btnConfirm);
+    hbox->addWidget(pushButton_confirm);
     hbox->addStretch();
     vbox->addLayout(hbox);
     dialog->setLayout(vbox);
     dialog->show();
-    connect(btnConfirm, SIGNAL(clicked()), dialog, SLOT(accept()));
+    connect(pushButton_confirm, SIGNAL(clicked()), dialog, SLOT(accept()));
     if(dialog->exec() == QDialog::Accepted){
         dialog->close();
     }
