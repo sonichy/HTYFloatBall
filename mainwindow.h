@@ -7,13 +7,14 @@
 #include <QAction>
 #include <QContextMenuEvent>
 #include <QSystemTrayIcon>
+#include <QSettings>
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = 0);
+    MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
 private:
@@ -25,6 +26,7 @@ private:
     QString BS(long b);
     QMenu *menu;
     QSystemTrayIcon *systray;
+    QSettings settings;
 
 protected:
     void mousePressEvent(QMouseEvent *event);

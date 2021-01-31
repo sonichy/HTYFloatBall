@@ -16,7 +16,8 @@
 #include <QPainter>
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
+    : QMainWindow(parent),
+      settings(QApplication::organizationName(), QApplication::applicationName())
 {
     i=db=ub=dbt=ubt=dbt1=ubt1=dbt0=ubt0=0;
     setStyleSheet("QLabel { color:white; padding:2px; border:1px solid white; border-radius:15px; }");
@@ -24,7 +25,9 @@ MainWindow::MainWindow(QWidget *parent)
     setAttribute(Qt::WA_TranslucentBackground, true);
     setAutoFillBackground(true);
     setFixedSize(QSize(60,35));
-    move(QApplication::desktop()->width() - width() - 20, QApplication::desktop()->height() - height() - 50);
+    int x = settings.value("X", QApplication::desktop()->width() - width() - 20).toInt();
+    int y = settings.value("Y", QApplication::desktop()->height() - height() - 50).toInt();
+    move(x, y);
     QFont font;
     font.setPointSize(7);
     label = new QLabel(this);
@@ -32,6 +35,9 @@ MainWindow::MainWindow(QWidget *parent)
     label->setFont(font);
     //label->setAlignment(Qt::AlignCenter);
     setCentralWidget(label);
+    bool b = settings.value("isShow", true).toBool();
+    if (!b)
+        label->hide();
     QTimer *timer = new QTimer;
     timer->setInterval(1000);
     timer->start();
@@ -43,7 +49,7 @@ MainWindow::MainWindow(QWidget *parent)
     font.setPointSize(8);
     label_float->setFont(font);
     label_float->setAlignment(Qt::AlignVCenter);
-    label_float->setStyleSheet("QLabel { padding:2px; color:white; background-color:rgba(0,0,0,200); border-radius:15px; }");//无效
+    label_float->setStyleSheet("QLabel { padding:2px; color:white; background-color:rgba(0,0,0,200); border-radius:15px; }");//圆角无效
 
     //托盘
     systray = new QSystemTrayIcon(this);
@@ -70,13 +76,15 @@ MainWindow::MainWindow(QWidget *parent)
         if (label->isVisible()) {
             label->hide();
             action_showhide->setText("显示");
+            settings.setValue("isShow", false);
         } else {
             label->show();
             action_showhide->setText("隐藏");
+            settings.setValue("isShow", true);
         }
     });
     connect(action_about, &QAction::triggered, [](){
-        QMessageBox MB(QMessageBox::NoIcon, "关于", "海天鹰浮球 2.0\n一款基于Qt的天气预报程序。\n作者：海天鹰\nE-mail: sonichy@163.com\n主页：https://github.com/sonichy\n\n2.0 (2020-04-17)\n增加托盘图标显示内存使用率。\n\n1.0 (2018)\n浮球显示网速，鼠标悬浮显示详细信息，绿色表示内存使用率，超过90%变红色。");
+        QMessageBox MB(QMessageBox::NoIcon, "关于", "海天鹰浮球 2.1\n一款基于Qt的内存使用率托盘和网速浮窗。\n作者：海天鹰\nE-mail: sonichy@163.com\n主页：https://github.com/sonichy\n\n2.1 (2021-01-31)\n增加保存和读取位置和显隐状态。\n\n2.0 (2020-04-17)\n增加托盘图标显示内存使用率。\n\n1.0 (2018)\n浮球显示网速，鼠标悬浮显示详细信息，绿色表示内存使用率，超过90%变红色。");
         MB.setIconPixmap(QPixmap(":/HTYFB.png"));
         MB.exec();
     });
@@ -100,6 +108,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(action_hide, &QAction::triggered, [=](){
         label->hide();
         action_showhide->setText("显示");
+        settings.setValue("isShow", false);
     });
     connect(action_boot_analyze, SIGNAL(triggered()), this, SLOT(bootAnalyze()));
     connect(action_boot_record, SIGNAL(triggered()), this, SLOT(bootRecord()));
@@ -140,6 +149,8 @@ void MainWindow::mouseReleaseEvent(QMouseEvent *event)
 {
     Q_UNUSED(event);
     setCursor(Qt::ArrowCursor);
+    settings.setValue("X", x());
+    settings.setValue("Y", y());
 }
 
 QString MainWindow::KB(long k)
@@ -199,7 +210,7 @@ void MainWindow::refresh()
     l = file.readLine();
     file.close();
     long mu = mt - ma;
-    int mp = mu*100/mt;
+    int mp = static_cast<int>(mu*100/mt);
     QString mem = "内存: " + QString("%1/%2=%3").arg(KB(mu)).arg(KB(mt)).arg(QString::number(mp) + "%");
 
     // CPU
@@ -216,7 +227,7 @@ void MainWindow::refresh()
     tt = user + nice + sys + idle + iowait + irq + softirq;
     file.close();
     int cusage = 0;
-    if(i>0) cusage = 100 -(idle-idle0)*100/(tt-tt0);
+    if (i>0) cusage = static_cast<int>(100 -(idle-idle0)*100/(tt-tt0));
     idle0 = idle;
     tt0 = tt;
 
