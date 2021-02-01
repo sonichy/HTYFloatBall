@@ -37,7 +37,7 @@ MainWindow::MainWindow(QWidget *parent)
     setCentralWidget(label);
     bool b = settings.value("isShow", true).toBool();
     if (!b)
-        label->hide();
+        this->hide();
     QTimer *timer = new QTimer;
     timer->setInterval(1000);
     timer->start();
@@ -58,6 +58,8 @@ MainWindow::MainWindow(QWidget *parent)
     systray->setVisible(true);
     QMenu *traymenu = new QMenu(this);
     QAction *action_showhide = new QAction("显示", traymenu);
+    if (!b)
+        action_showhide->setText("隐藏");
     QIcon icon = QIcon::fromTheme("computer");
     action_showhide->setIcon(icon);
     QAction *action_about = new QAction("关于", traymenu);
@@ -74,17 +76,17 @@ MainWindow::MainWindow(QWidget *parent)
     connect(systray, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(trayActivated(QSystemTrayIcon::ActivationReason)));
     connect(action_showhide, &QAction::triggered, [=](){
         if (label->isVisible()) {
-            label->hide();
+            this->hide();  //mainwindow->hide();
             action_showhide->setText("显示");
             settings.setValue("isShow", false);
         } else {
-            label->show();
+            this->show();
             action_showhide->setText("隐藏");
             settings.setValue("isShow", true);
         }
     });
     connect(action_about, &QAction::triggered, [](){
-        QMessageBox MB(QMessageBox::NoIcon, "关于", "海天鹰浮球 2.1\n一款基于Qt的内存使用率托盘和网速浮窗。\n作者：海天鹰\nE-mail: sonichy@163.com\n主页：https://github.com/sonichy\n\n2.1 (2021-01-31)\n增加保存和读取位置和显隐状态。\n\n2.0 (2020-04-17)\n增加托盘图标显示内存使用率。\n\n1.0 (2018)\n浮球显示网速，鼠标悬浮显示详细信息，绿色表示内存使用率，超过90%变红色。");
+        QMessageBox MB(QMessageBox::NoIcon, "关于", "海天鹰浮球 2.1\n一款基于Qt的内存使用率托盘和网速浮窗。\n作者：海天鹰\nE-mail: sonichy@163.com\n主页：https://github.com/sonichy\n\n2.1 (2021-02-01)\n1.增加保存和读取位置和显隐状态。\n2.修复浮窗隐藏却是透明的问题。\n\n2.0 (2020-04-17)\n增加托盘图标显示内存使用率。\n\n1.0 (2018)\n浮球显示网速，鼠标悬浮显示详细信息，绿色表示内存使用率，超过90%变红色。");
         MB.setIconPixmap(QPixmap(":/HTYFB.png"));
         MB.exec();
     });
@@ -106,7 +108,7 @@ MainWindow::MainWindow(QWidget *parent)
     menu->addAction(action_boot_record);
     menu->addAction(action_quit);
     connect(action_hide, &QAction::triggered, [=](){
-        label->hide();
+        this->hide();
         action_showhide->setText("显示");
         settings.setValue("isShow", false);
     });
