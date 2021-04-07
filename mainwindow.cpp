@@ -14,6 +14,7 @@
 #include <QDate>
 #include <QMessageBox>
 #include <QPainter>
+#include <QLineEdit>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
@@ -25,8 +26,14 @@ MainWindow::MainWindow(QWidget *parent)
     setAttribute(Qt::WA_TranslucentBackground, true);
     setAutoFillBackground(true);
     setFixedSize(QSize(60,35));
-    int x = settings.value("X", QApplication::desktop()->width() - width() - 20).toInt();
-    int y = settings.value("Y", QApplication::desktop()->height() - height() - 50).toInt();
+    int x0 = QApplication::desktop()->width() - width() - 20;
+    int y0 = QApplication::desktop()->height() - height() - 50;
+    int x = settings.value("X", x0).toInt();
+    int y = settings.value("Y", y0).toInt();
+    if (x >= QApplication::desktop()->width())
+        x = x0;
+    if (y >= QApplication::desktop()->height())
+        y = y0;
     move(x, y);
     QFont font;
     font.setPointSize(7);
@@ -59,17 +66,17 @@ MainWindow::MainWindow(QWidget *parent)
     QMenu *traymenu = new QMenu(this);
     QAction *action_showhide = new QAction("显示", traymenu);
     if (!b)
-        action_showhide->setText("隐藏");
-    QIcon icon = QIcon::fromTheme("computer");
-    action_showhide->setIcon(icon);
-    QAction *action_about = new QAction("关于", traymenu);
-    icon = QIcon::fromTheme("about");
-    action_about->setIcon(icon);
-    QAction *action_quit = new QAction("退出", traymenu);
-    icon = QIcon::fromTheme("quit");;
-    action_quit->setIcon(icon);
+        action_showhide->setText("隐藏");    
+    action_showhide->setIcon(QIcon::fromTheme("computer"));
+    QAction *action_about = new QAction("关于", traymenu);    
+    action_about->setIcon(QIcon::fromTheme("about"));
+    QAction *action_set = new QAction("设置", traymenu);
+    action_set->setIcon(QIcon::fromTheme("set"));
+    QAction *action_quit = new QAction("退出", traymenu);    
+    action_quit->setIcon(QIcon::fromTheme("quit"));
     traymenu->addAction(action_showhide);
     traymenu->addAction(action_about);
+    traymenu->addAction(action_set);
     traymenu->addAction(action_quit);
     systray->setContextMenu(traymenu);
     systray->show();
@@ -86,9 +93,39 @@ MainWindow::MainWindow(QWidget *parent)
         }
     });
     connect(action_about, &QAction::triggered, [](){
-        QMessageBox MB(QMessageBox::NoIcon, "关于", "海天鹰浮球 2.1\n一款基于Qt的内存使用率托盘和网速浮窗。\n作者：海天鹰\nE-mail: sonichy@163.com\n主页：https://github.com/sonichy\n\n2.1 (2021-02-01)\n1.增加保存和读取位置和显隐状态。\n2.修复浮窗隐藏却是透明的问题。\n\n2.0 (2020-04-17)\n增加托盘图标显示内存使用率。\n\n1.0 (2018)\n浮球显示网速，鼠标悬浮显示详细信息，绿色表示内存使用率，超过90%变红色。");
+        QMessageBox MB(QMessageBox::NoIcon, "关于", "海天鹰浮球 2.2\n一款基于Qt的内存使用率托盘和网速浮窗。\n作者：海天鹰\nE-mail: sonichy@163.com\n主页：https://github.com/sonichy");
         MB.setIconPixmap(QPixmap(":/HTYFB.png"));
         MB.exec();
+    });
+    connect(action_set, &QAction::triggered, [=](){
+        QDialog *dialog = new QDialog;
+        dialog->setWindowTitle("设置");
+        dialog->setFixedWidth(300);
+        QVBoxLayout *vbox = new QVBoxLayout;
+        QHBoxLayout *hbox = new QHBoxLayout;
+        QLabel *label = new QLabel("系统监视器");
+        hbox->addWidget(label);
+        QLineEdit *lineEdit = new QLineEdit;
+        lineEdit->setText(settings.value("system-monitor", "deepin-system-monitor").toString());
+        hbox->addWidget(lineEdit);
+        vbox->addLayout(hbox);
+        hbox = new QHBoxLayout;
+        hbox->addStretch();
+        QPushButton *pushButton_confirm = new QPushButton;
+        pushButton_confirm->setText("确定");
+        hbox->addWidget(pushButton_confirm);
+        QPushButton *pushButton_cancel = new QPushButton;
+        pushButton_cancel->setText("取消");
+        hbox->addWidget(pushButton_cancel);
+        hbox->addStretch();
+        vbox->addLayout(hbox);
+        dialog->setLayout(vbox);
+        connect(pushButton_confirm, SIGNAL(pressed()), dialog, SLOT(accept()));
+        connect(pushButton_cancel, SIGNAL(pressed()), dialog, SLOT(reject()));
+        if (dialog->exec() == QDialog::Accepted) {
+            settings.setValue("system-monitor", lineEdit->text());
+            dialog->close();
+        }
     });
     connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));
 
@@ -114,7 +151,7 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(action_boot_analyze, SIGNAL(triggered()), this, SLOT(bootAnalyze()));
     connect(action_boot_record, SIGNAL(triggered()), this, SLOT(bootRecord()));
-    connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));
+    connect(action_quit, SIGNAL(triggered()), qApp, SLOT(quit()));    
 
     // 开机时长
     QProcess *process = new QProcess;
@@ -239,7 +276,7 @@ void MainWindow::refresh()
     l = file.readLine();
     l = file.readLine();
     dbt1=ubt1=0;
-    while(!file.atEnd()){
+    while (!file.atEnd()) {
         l = file.readLine();
         QStringList list = l.split(QRegExp("\\s{1,}"));
         db = list.at(1).toLong();
@@ -303,9 +340,8 @@ void MainWindow::refresh()
     QFont font;
     font.setPointSize(50);
     painter.setFont(font);
-    painter.drawText(pixmap.rect(), Qt::AlignCenter, QString::number(mp));
-    QIcon icon(pixmap);
-    systray->setIcon(icon);
+    painter.drawText(pixmap.rect(), Qt::AlignCenter, QString::number(mp));    
+    systray->setIcon(QIcon(pixmap));
 }
 
 void MainWindow::enterEvent(QEvent *event)
@@ -330,8 +366,7 @@ void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 void MainWindow::mouseDoubleClickEvent(QMouseEvent* event)
 {
     Q_UNUSED(event);
-    QProcess::startDetached("deepin-system-monitor");
-    //QProcess::startDetached("gnome-system-monitor");
+    QProcess::startDetached(settings.value("system-monitor","deepin-system-monitor").toString());
 }
 
 void MainWindow::bootRecord()
@@ -357,7 +392,7 @@ void MainWindow::bootRecord()
     dialog->setLayout(vbox);
     dialog->show();
     connect(pushButton_confirm, SIGNAL(clicked()), dialog, SLOT(accept()));
-    if(dialog->exec() == QDialog::Accepted){
+    if (dialog->exec() == QDialog::Accepted) {
         dialog->close();
     }
 }
@@ -395,13 +430,13 @@ void MainWindow::trayActivated(QSystemTrayIcon::ActivationReason reason)
     qDebug() << "QSystemTrayIcon::ActivationReason" << reason;
     switch (reason) {
     case QSystemTrayIcon::Trigger:
-        //systray->showMessage("实时监控", text_float, QSystemTrayIcon::MessageIcon::Information, 9000); //图标改变后不能更改
+        systray->showMessage("实时监控", text_float, QSystemTrayIcon::MessageIcon::Information, 9000);
         break;
-    case QSystemTrayIcon::DoubleClick: //不支持
-        QProcess::startDetached("deepin-system-monitor");
+    case QSystemTrayIcon::DoubleClick: //Deepin不支持
+        QProcess::startDetached(settings.value("system-monitor","deepin-system-monitor").toString());
         break;
     case QSystemTrayIcon::MiddleClick:
-        QProcess::startDetached("deepin-system-monitor");
+        QProcess::startDetached(settings.value("system-monitor","deepin-system-monitor").toString());
         break;
     default:
         break;
