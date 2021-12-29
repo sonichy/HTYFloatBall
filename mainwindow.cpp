@@ -1,20 +1,4 @@
 #include "mainwindow.h"
-#include <QApplication>
-#include <QDesktopWidget>
-#include <QMouseEvent>
-#include <QTimer>
-#include <QTime>
-#include <QDebug>
-#include <QProcess>
-#include <QDialog>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QTextBrowser>
-#include <QPushButton>
-#include <QDate>
-#include <QMessageBox>
-#include <QPainter>
-#include <QLineEdit>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
@@ -43,6 +27,7 @@ MainWindow::MainWindow(QWidget *parent)
     //label->setAlignment(Qt::AlignCenter);
     setCentralWidget(label);
     bool b = settings.value("isShow", true).toBool();
+    qDebug() << b;
     if (!b)
         this->hide();
     QTimer *timer = new QTimer;
@@ -59,6 +44,7 @@ MainWindow::MainWindow(QWidget *parent)
     label_float->setStyleSheet("QLabel { padding:2px; color:white; background-color:rgba(0,0,0,200); border-radius:15px; }");//圆角无效
 
     //托盘
+    trayStyle = settings.value("TrayStyle", 0).toInt();
     systray = new QSystemTrayIcon(this);
     systray->setToolTip("系统监控");
     systray->setIcon(QIcon(":/icon.png"));
@@ -83,7 +69,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(systray, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(trayActivated(QSystemTrayIcon::ActivationReason)));
     connect(action_showhide, &QAction::triggered, [=](){
         if (label->isVisible()) {
-            this->hide();  //mainwindow->hide();
+            this->hide();
             action_showhide->setText("显示");
             settings.setValue("isShow", false);
         } else {
@@ -93,7 +79,7 @@ MainWindow::MainWindow(QWidget *parent)
         }
     });
     connect(action_about, &QAction::triggered, [](){
-        QMessageBox MB(QMessageBox::NoIcon, "关于", "海天鹰浮球 2.2\n一款基于Qt的内存使用率托盘和网速浮窗。\n作者：海天鹰\nE-mail: sonichy@163.com\n主页：https://github.com/sonichy");
+        QMessageBox MB(QMessageBox::NoIcon, "关于", "海天鹰浮球 2.3\n一款基于Qt的内存使用率托盘和网速浮窗。\n作者：海天鹰\nE-mail: sonichy@163.com\n主页：https://github.com/sonichy");
         MB.setIconPixmap(QPixmap(":/HTYFB.png"));
         MB.exec();
     });
@@ -109,6 +95,18 @@ MainWindow::MainWindow(QWidget *parent)
         lineEdit->setText(settings.value("system-monitor", "deepin-system-monitor").toString());
         hbox->addWidget(lineEdit);
         vbox->addLayout(hbox);
+
+        hbox = new QHBoxLayout;
+        label = new QLabel("托盘样式");
+        hbox->addWidget(label);
+        QComboBox *comboBox_trayStyle = new QComboBox;
+        QStringList SL;
+        SL << "圆弧" << "双竖线";
+        comboBox_trayStyle->addItems(SL);
+        comboBox_trayStyle->setCurrentIndex(settings.value("TrayStyle", 0).toInt());
+        hbox->addWidget(comboBox_trayStyle);
+        vbox->addLayout(hbox);
+
         hbox = new QHBoxLayout;
         hbox->addStretch();
         QPushButton *pushButton_confirm = new QPushButton;
@@ -124,6 +122,8 @@ MainWindow::MainWindow(QWidget *parent)
         connect(pushButton_cancel, SIGNAL(pressed()), dialog, SLOT(reject()));
         if (dialog->exec() == QDialog::Accepted) {
             settings.setValue("system-monitor", lineEdit->text());
+            trayStyle = comboBox_trayStyle->currentIndex();
+            settings.setValue("TrayStyle", trayStyle);
             dialog->close();
         }
     });
@@ -265,8 +265,8 @@ void MainWindow::refresh()
     sscanf(ch, "%s%ld%ld%ld%ld%ld%ld%ld", cpu, &user, &nice, &sys, &idle, &iowait, &irq, &softirq);
     tt = user + nice + sys + idle + iowait + irq + softirq;
     file.close();
-    int cusage = 0;
-    if (i>0) cusage = static_cast<int>(100 -(idle-idle0)*100/(tt-tt0));
+    int cp = 0;
+    if (i>0) cp = static_cast<int>(100 -(idle-idle0)*100/(tt-tt0));
     idle0 = idle;
     tt0 = tt;
 
@@ -303,7 +303,7 @@ void MainWindow::refresh()
 
     // 绘图
     label->setText(netspeed);
-    text_float = startup + "\n" + uptime + "\nCPU: " + QString::number(cusage) + "%\n" + mem + "\n" + net;
+    text_float = startup + "\n" + uptime + "\nCPU: " + QString::number(cp) + "%\n" + mem + "\n" + net;
     label_float->setText(text_float);
     systray->setToolTip(text_float);
 
@@ -329,18 +329,35 @@ void MainWindow::refresh()
     pixmap.fill(Qt::transparent);
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing, true);
-    QPen pen;
-    if (mp<90)
-        pen.setColor(Qt::green);
-    else
-        pen.setColor(Qt::red);
-    pen.setWidth(10);
-    painter.setPen(pen);
-    painter.drawArc(pixmap.rect().adjusted(10,10,-10,-10), 0, 360*16*mp/100);
-    QFont font;
-    font.setPointSize(50);
-    painter.setFont(font);
-    painter.drawText(pixmap.rect(), Qt::AlignCenter, QString::number(mp));    
+
+    if (trayStyle == 0) {
+        //环形
+        QPen pen;
+        if (mp<90)
+            pen.setColor(Qt::green);
+        else
+            pen.setColor(Qt::red);
+        pen.setWidth(10);
+        painter.setPen(pen);
+        painter.drawArc(pixmap.rect().adjusted(10,10,-10,-10), 0, 360*16*mp/100);
+        QFont font;
+        font.setPointSize(50);
+        painter.setFont(font);
+        painter.drawText(pixmap.rect(), Qt::AlignCenter, QString::number(mp));
+    } else if (trayStyle == 1) {
+        //双竖线
+        QColor color;
+        if (mp < 90)
+            color = Qt::green;
+        else
+            color = Qt::red;
+        painter.fillRect(0, pixmap.height() - mp*pixmap.height()/100, pixmap.width()/2-5, mp*pixmap.height()/100, color);
+        if (cp < 90)
+            color = Qt::green;
+        else
+            color = Qt::red;
+        painter.fillRect(pixmap.width()/2+5, pixmap.height() - cp*pixmap.height()/100, pixmap.width()/2-1, cp*pixmap.height()/100, color);
+    }
     systray->setIcon(QIcon(pixmap));
 }
 
@@ -420,7 +437,7 @@ void MainWindow::bootAnalyze()
     dialog->setLayout(vbox);
     dialog->show();
     connect(pushButton_confirm, SIGNAL(clicked()), dialog, SLOT(accept()));
-    if(dialog->exec() == QDialog::Accepted){
+    if (dialog->exec() == QDialog::Accepted) {
         dialog->close();
     }
 }
